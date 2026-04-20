@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export NANOCODER_DEVELOPMENT_MODE="${NANOCODER_DEVELOPMENT_MODE:-yolo}"
+export NANOCODER_TRUST_CONTAINER="${NANOCODER_TRUST_CONTAINER:-1}"
+
+config_dir="${NANOCODER_CONFIG_DIR:-$HOME/.config/nanocoder}"
+prefs="$config_dir/nanocoder-preferences.json"
+lsp_mask_dir="$config_dir/bin/lsp-mask"
+mkdir -p "$config_dir"
+
+if [ -d "$lsp_mask_dir" ]; then
+  export PATH="$lsp_mask_dir:$PATH"
+fi
+
+if [ -z "${NANOCODER_MCPSERVERS:-}" ] && [ -f "$config_dir/.mcp.json" ]; then
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "jq is required to filter Nanocoder MCP config" >&2
+    exit 1
+  fi
+
+  split_csv() {
+    local value="${1:-}"
+    tr ',' '\n' <<< "$value" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; /^$/d'
+  }
+
+  all_mcp_servers="$(
+    sed -n '/"mcpServers"[[:space:]]*:[[:space:]]*{/,/^  }/p' "$config_dir/.mcp.json" \
+      | sed -n 's/^    "\([^"]*\)"[[:space:]]*:[[:space:]]*{.*/\1/p' \
+      | sort
+  )"
+
+  if [ -z "${HVA_MCP_ENABLED+x}" ] || [ -z "${HVA_MCP_DISABLED+x}" ]; then
+    echo "HVA_MCP_ENABLED and HVA_MCP_DISABLED must be set by env/env-source.sh" >&2
+    exit 1
+  fi
+
+  enabled_mcp_servers="$(split_csv "$HVA_MCP_ENABLED" | sort)"
+  disabled_mcp_servers="$(split_csv "$HVA_MCP_DISABLED" | sort)"
+  selected_mcp_servers="$enabled_mcp_servers"
+
+  combined_mcp_servers="$(printf '%s\n%s\n' "$enabled_mcp_servers" "$disabled_mcp_servers" | sed '/^$/d' | sort)"
+  duplicate_mcp_servers="$(printf '%s\n' "$combined_mcp_servers" | uniq -d)"
+  unknown_mcp_servers="$(comm -23 <(printf '%s\n' "$combined_mcp_servers" | uniq) <(printf '%s\n' "$all_mcp_servers"))"
+  missing_mcp_servers="$(comm -23 <(printf '%s\n' "$all_mcp_servers") <(printf '%s\n' "$combined_mcp_servers" | uniq))"
+
+  failed=0
+  if [ -n "$unknown_mcp_servers" ]; then
+    echo "unknown MCP server(s) in env/env-source.sh: $(paste -sd, - <<< "$unknown_mcp_servers")" >&2
+    failed=1
+  fi
+  if [ -n "$missing_mcp_servers" ]; then
+    echo "new or undecided MCP server(s); add each to HVA_MCP_ENABLED or HVA_MCP_DISABLED: $(paste -sd, - <<< "$missing_mcp_servers")" >&2
+    failed=1
+  fi
+  if [ -n "$duplicate_mcp_servers" ]; then
+    echo "MCP server(s) listed in both enabled/disabled or repeated: $(paste -sd, - <<< "$duplicate_mcp_servers")" >&2
+    failed=1
+  fi
+  if [ "$failed" -ne 0 ]; then
+    echo "known MCP servers: $(paste -sd, - <<< "$all_mcp_servers")" >&2
+    exit 1
+  fi
+
+  if [ -z "${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ]; then
+    selected_mcp_servers="$(grep -vxF github <<< "$selected_mcp_servers" || true)"
+  fi
+  if [ -z "${BRAVE_API_KEY:-}" ]; then
+    selected_mcp_servers="$(grep -vxF brave-search <<< "$selected_mcp_servers" || true)"
+  fi
+
+  export NANOCODER_MCPSERVERS
+  if [ -z "$selected_mcp_servers" ]; then
+    NANOCODER_MCPSERVERS='{"mcpServers":{}}'
+  else
+    enabled_mcp_json="$(printf '%s\n' "$selected_mcp_servers" | jq -R -s 'split("\n") | map(select(length > 0))')"
+    NANOCODER_MCPSERVERS="$(
+      jq -c --argjson enabled_mcp "$enabled_mcp_json" '
+        {mcpServers: (.mcpServers | with_entries(select(.key as $name | $enabled_mcp | index($name)) | .value.enabled = true))}
+      ' "$config_dir/.mcp.json"
+    )"
+  fi
+  printf '%s\n' "$NANOCODER_MCPSERVERS" > "$config_dir/.mcp.json"
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is required to update Nanocoder preferences" >&2
+  exit 1
+fi
+
+trusted_dirs="$(
+  for dir in "$PWD" /workspace /tmp /home/dev; do
+    if [ -e "$dir" ]; then
+      realpath "$dir"
+    fi
+  done | jq -R -s 'split("\n") | map(select(length > 0))'
+)"
+
+tmp_prefs="$(mktemp "$config_dir/nanocoder-preferences.json.XXXXXX")"
+if [ -f "$prefs" ] && jq empty "$prefs" >/dev/null 2>&1; then
+  jq --argjson dirs "$trusted_dirs" \
+    '.trustedDirectories = (((.trustedDirectories // []) + $dirs) | unique)' \
+    "$prefs" > "$tmp_prefs"
+else
+  jq -n --argjson dirs "$trusted_dirs" '{trustedDirectories: $dirs}' > "$tmp_prefs"
+fi
+mv "$tmp_prefs" "$prefs"
+
+exec /usr/local/bin/nanocoder-real "$@"

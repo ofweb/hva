@@ -1,0 +1,348 @@
+ARG HVA_V_UBUNTU_BASE_IMAGE=ubuntu:26.04@sha256:5e275723f82c67e387ba9e3c24baa0abdcb268917f276a0561c97bef9450d0b4
+FROM ${HVA_V_UBUNTU_BASE_IMAGE}
+
+ARG USERNAME
+ARG USER_UID
+ARG USER_GID
+ARG HVA_CSHARP
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN --mount=type=cache,id=hva-apt,sharing=locked,target=/var/cache/apt \
+    --mount=type=cache,id=hva-apt-lists,sharing=locked,target=/var/lib/apt \
+    apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    bc \
+    ca-certificates \
+    ccache \
+    bear \
+    curl \
+    wget \
+    docker-cli \
+    docker-buildx \
+    docker-compose \
+    dnsutils \
+    direnv \
+    duf \
+    entr \
+    git \
+    git-lfs \
+    gdu \
+    gzip \
+    htop \
+    hyperfine \
+    iputils-ping \
+    lazygit \
+    openssh-client \
+    moreutils \
+    nmap \
+    netcat-openbsd \
+    net-tools \
+    parallel \
+    rsync \
+    jq \
+    less \
+    file \
+    7zip \
+    unzip \
+    zip \
+    xz-utils \
+    zstd \
+    tar \
+    procps \
+    psmisc \
+    lsof \
+    shellcheck \
+    shfmt \
+    strace \
+    sudo \
+    tcpdump \
+    time \
+    tmux \
+    tokei \
+    ranger \
+    tree \
+    ripgrep \
+    xxhash \
+    xxd \
+    yq \
+    fd-find \
+    neovim \
+    valgrind \
+    cppcheck \
+    build-essential \
+    pkg-config \
+    cmake \
+    ninja-build \
+    clang \
+    clangd \
+    lld \
+    mold \
+    gdb \
+    golang-go \
+    python3 \
+    python3-dev \
+    python3-venv \
+    python3-pip \
+    sqlite3 \
+    libsqlite3-dev \
+    libssl-dev \
+    libicu-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    liblzma-dev \
+    libreadline-dev \
+    libffi-dev \
+    libncurses-dev \
+    libgdbm-dev \
+    tk-dev \
+    uuid-dev \
+    libxml2-dev \
+    libudev-dev
+
+RUN set -eux; \
+    existing_group="$(getent group "${USER_GID}" | cut -d: -f1 || true)"; \
+    if [ -z "${existing_group}" ]; then \
+        groupadd --gid "${USER_GID}" "${USERNAME}"; \
+    fi; \
+    existing_user="$(getent passwd "${USER_UID}" | cut -d: -f1 || true)"; \
+    if [ -n "${existing_user}" ] && [ "${existing_user}" != "${USERNAME}" ]; then \
+        usermod --login "${USERNAME}" \
+                --home "/home/${USERNAME}" \
+                --move-home \
+                --gid "${USER_GID}" \
+                --shell /bin/bash \
+                "${existing_user}"; \
+    elif [ -n "${existing_user}" ]; then \
+        usermod --gid "${USER_GID}" --shell /bin/bash "${USERNAME}"; \
+    else \
+        useradd --uid "${USER_UID}" --gid "${USER_GID}" -m -s /bin/bash "${USERNAME}"; \
+    fi; \
+    mkdir -p "/home/${USERNAME}" /etc/sudoers.d; \
+    chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}"; \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${USERNAME}"; \
+    chmod 0440 "/etc/sudoers.d/${USERNAME}"; \
+    ln -sf /usr/bin/fdfind /usr/local/bin/fd
+
+ENV FNM_DIR=/home/${USERNAME}/.local/share/fnm \
+    DOTNET_ROOT=/home/${USERNAME}/.dotnet \
+    UV_UNMANAGED_INSTALL=/home/${USERNAME}/.local/bin \
+    CARGO_HOME=/home/${USERNAME}/.cargo \
+    RUSTUP_HOME=/home/${USERNAME}/.rustup \
+    GOPATH=/home/${USERNAME}/go \
+    PATH=/home/${USERNAME}/.dotnet/tools:/home/${USERNAME}/.dotnet:/home/${USERNAME}/go/bin:/home/${USERNAME}/.local/bin:/home/${USERNAME}/.cargo/bin:/usr/local/bin:/usr/bin:/bin \
+    CARGO_NET_GIT_FETCH_WITH_CLI=true \
+    RUST_BACKTRACE=1 \
+    DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_NOLOGO=1
+
+USER ${USERNAME}
+WORKDIR /workspace
+SHELL ["/bin/bash", "-lc"]
+
+RUN mkdir -p "$HOME/.local/bin" "$FNM_DIR" "$GOPATH/bin" "$GOPATH/pkg" "$HOME/.cache"
+
+ARG HVA_V_NODE_VERSION
+RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_DIR" --skip-shell \
+    && export PATH="$FNM_DIR:$PATH" \
+    && eval "$(fnm env --shell bash)" \
+    && fnm install "${HVA_V_NODE_VERSION}" \
+    && fnm default "${HVA_V_NODE_VERSION}" \
+    && fnm use "${HVA_V_NODE_VERSION}" \
+    && corepack enable \
+    && npm config set fund false \
+    && npm config set audit false \
+    && npm config set update-notifier false \
+    && npm config set fetch-retries 5 \
+    && npm config set fetch-retry-factor 2 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm config set registry https://registry.npmjs.org/
+
+ARG HVA_V_NANOCODER_VERSION
+ARG HVA_V_TYPESCRIPT_VERSION
+ARG HVA_V_TYPESCRIPT_LS_VERSION
+ARG HVA_V_PRETTIER_VERSION
+ARG HVA_V_ESLINT_VERSION
+ARG HVA_V_TSX_VERSION
+ARG HVA_V_PYRIGHT_VERSION
+ARG HVA_V_VSCODE_LANGSERVERS_VERSION
+ARG HVA_V_YAML_LS_VERSION
+ARG HVA_V_BASH_LS_VERSION
+ARG HVA_V_DOCKERFILE_LS_VERSION
+RUN --mount=type=cache,id=hva-npm-v2,mode=0777,uid=${USER_UID},gid=${USER_GID},sharing=locked,target=/tmp/hva-npm-cache \
+    export PATH="$FNM_DIR:$PATH" \
+    && export npm_config_cache=/tmp/hva-npm-cache \
+    && eval "$(fnm env --shell bash)" \
+    && fnm use "${HVA_V_NODE_VERSION}" \
+    && for i in 1 2 3; do \
+         npm install -g \
+           "@nanocollective/nanocoder@${HVA_V_NANOCODER_VERSION}" \
+           "typescript@${HVA_V_TYPESCRIPT_VERSION}" \
+           "typescript-language-server@${HVA_V_TYPESCRIPT_LS_VERSION}" \
+           "prettier@${HVA_V_PRETTIER_VERSION}" \
+           "eslint@${HVA_V_ESLINT_VERSION}" \
+           "tsx@${HVA_V_TSX_VERSION}" \
+           "pyright@${HVA_V_PYRIGHT_VERSION}" \
+           "vscode-langservers-extracted@${HVA_V_VSCODE_LANGSERVERS_VERSION}" \
+           "yaml-language-server@${HVA_V_YAML_LS_VERSION}" \
+           "bash-language-server@${HVA_V_BASH_LS_VERSION}" \
+           "dockerfile-language-server-nodejs@${HVA_V_DOCKERFILE_LS_VERSION}" && break; \
+         echo "nanocoder install failed, retry $i/3"; \
+         sleep 10; \
+       done \
+    && node --version \
+    && npm --version \
+    && npm ls -g @nanocollective/nanocoder --depth=0
+
+RUN set -eux; \
+    export PATH="$FNM_DIR:$PATH"; \
+    eval "$(fnm env --shell bash)"; \
+    fnm use "${HVA_V_NODE_VERSION}" >/dev/null; \
+    pkg="$(npm root -g)/@nanocollective/nanocoder"; \
+    sed -i "s/const \\[developmentMode, setDevelopmentMode\\] = useState('normal');/const [developmentMode, setDevelopmentMode] = useState(process.env.NANOCODER_DEVELOPMENT_MODE || 'normal');/" "$pkg/dist/hooks/useAppState.js"; \
+    sed -i "s/let currentMode = 'normal';/let currentMode = process.env.NANOCODER_DEVELOPMENT_MODE || 'normal';/" "$pkg/dist/context/mode-context.js"; \
+    sed -i "s/setDevelopmentMode('auto-accept');/setDevelopmentMode(process.env.NANOCODER_DEVELOPMENT_MODE || 'auto-accept');/" "$pkg/dist/hooks/useNonInteractiveMode.js"; \
+    sed -i "s/setCurrentModeContext('auto-accept');/setCurrentModeContext(process.env.NANOCODER_DEVELOPMENT_MODE || 'auto-accept');/" "$pkg/dist/hooks/useNonInteractiveMode.js"; \
+    sed -i "s/const trusted = trustedDirectories.some(trustedDir => path.resolve(trustedDir) === normalizedDirectory);/const trustContainer = process.env.NANOCODER_TRUST_CONTAINER === '1';\\n        const trusted = trustContainer || trustedDirectories.some(trustedDir => path.resolve(trustedDir) === normalizedDirectory);/" "$pkg/dist/hooks/useDirectoryTrust.js"; \
+    grep -q "NANOCODER_DEVELOPMENT_MODE" "$pkg/dist/hooks/useAppState.js"; \
+    grep -q "NANOCODER_DEVELOPMENT_MODE" "$pkg/dist/context/mode-context.js"; \
+    grep -q "NANOCODER_DEVELOPMENT_MODE" "$pkg/dist/hooks/useNonInteractiveMode.js"; \
+    grep -q "trustContainer" "$pkg/dist/hooks/useDirectoryTrust.js"; \
+    if [[ "${HVA_CSHARP}" == "true" ]]; then \
+        server_discovery="$pkg/dist/lsp/server-discovery.js"; \
+        grep -q "    // JSON" "$server_discovery"; \
+        sed -i "/    \\/\\/ JSON/i\\    // C#\\n    {\\n        name: 'csharp-ls',\\n        command: 'csharp-ls',\\n        args: [],\\n        languages: ['cs'],\\n        checkCommand: 'csharp-ls --version',\\n        verificationMethod: 'version',\\n        installHint: 'dotnet tool install --global csharp-ls',\\n    }," "$server_discovery"; \
+        grep -q "        hxx: 'cpp'," "$server_discovery"; \
+        sed -i "s/        hxx: 'cpp',/        hxx: 'cpp',\\n        cs: 'csharp',/" "$server_discovery"; \
+        grep -q "name: 'csharp-ls'" "$server_discovery"; \
+        grep -q "cs: 'csharp'" "$server_discovery"; \
+    fi
+
+ARG HVA_V_RUST_VERSION
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain "${HVA_V_RUST_VERSION}" --profile default \
+    && rustup default "${HVA_V_RUST_VERSION}" \
+    && rustup component add rustfmt clippy rust-src rust-analyzer \
+    && rustc --version \
+    && cargo --version
+
+ARG HVA_V_RUST_DOCS_MCP_VERSION
+RUN --mount=type=cache,id=hva-cargo-registry,mode=0777,uid=${USER_UID},gid=${USER_GID},sharing=locked,target=/home/dev/.cargo/registry \
+    --mount=type=cache,id=hva-cargo-git,mode=0777,uid=${USER_UID},gid=${USER_GID},sharing=locked,target=/home/dev/.cargo/git \
+    cargo install rust-docs-mcp --version "${HVA_V_RUST_DOCS_MCP_VERSION}" \
+    && rust-docs-mcp --help >/dev/null
+
+ARG HVA_V_CARGO_BINSTALL_VERSION
+ARG HVA_V_JUST_VERSION
+ARG HVA_V_NEXTEST_VERSION
+ARG HVA_V_BOTTOM_VERSION
+RUN --mount=type=cache,id=hva-cargo-registry,mode=0777,uid=${USER_UID},gid=${USER_GID},sharing=locked,target=/home/dev/.cargo/registry \
+    --mount=type=cache,id=hva-cargo-git,mode=0777,uid=${USER_UID},gid=${USER_GID},sharing=locked,target=/home/dev/.cargo/git \
+    cargo install cargo-binstall --version "${HVA_V_CARGO_BINSTALL_VERSION}" \
+    && cargo binstall -y "just@${HVA_V_JUST_VERSION}" "cargo-nextest@${HVA_V_NEXTEST_VERSION}" "bottom@${HVA_V_BOTTOM_VERSION}" \
+    && just --version \
+    && cargo nextest --version \
+    && btm --version
+
+ARG HVA_V_GOPLS_VERSION
+ARG HVA_V_STATICCHECK_VERSION
+ARG HVA_V_GOFUMPT_VERSION
+ARG HVA_V_DLV_VERSION
+ARG HVA_V_LAZYDOCKER_VERSION
+RUN --mount=type=cache,id=hva-go-pkg-v2,mode=0777,uid=${USER_UID},gid=${USER_GID},sharing=locked,target=/home/dev/go/pkg \
+    go install "golang.org/x/tools/gopls@${HVA_V_GOPLS_VERSION}" \
+    && go install "honnef.co/go/tools/cmd/staticcheck@${HVA_V_STATICCHECK_VERSION}" \
+    && go install "mvdan.cc/gofumpt@${HVA_V_GOFUMPT_VERSION}" \
+    && go install "github.com/go-delve/delve/cmd/dlv@${HVA_V_DLV_VERSION}" \
+    && go install "github.com/jesseduffield/lazydocker@${HVA_V_LAZYDOCKER_VERSION}" \
+    && gopls version \
+    && staticcheck -version \
+    && gofumpt --version \
+    && dlv version \
+    && lazydocker --version
+
+ARG HVA_V_UV_VERSION
+RUN curl -LsSf "https://astral.sh/uv/${HVA_V_UV_VERSION}/install.sh" | sh \
+    && uv --version
+
+ARG HVA_V_RUFF_VERSION
+ARG HVA_V_MYPY_VERSION
+ARG HVA_V_PYTEST_VERSION
+ARG HVA_V_IPYTHON_VERSION
+RUN --mount=type=cache,id=hva-uv,mode=0777,uid=${USER_UID},gid=${USER_GID},sharing=locked,target=/home/dev/.cache/uv \
+    uv tool install "ruff==${HVA_V_RUFF_VERSION}" \
+    && uv tool install "mypy==${HVA_V_MYPY_VERSION}" \
+    && uv tool install "pytest==${HVA_V_PYTEST_VERSION}" \
+    && uv tool install "ipython==${HVA_V_IPYTHON_VERSION}" \
+    && ruff --version \
+    && mypy --version \
+    && pytest --version \
+    && ipython --version
+
+ARG HVA_V_DOTNET_CHANNEL
+ARG HVA_V_CSHARP_LS_VERSION
+RUN if [[ "${HVA_CSHARP}" == "true" ]]; then \
+        curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
+        && bash /tmp/dotnet-install.sh --channel "${HVA_V_DOTNET_CHANNEL}" --install-dir "$DOTNET_ROOT" --no-path \
+        && rm -f /tmp/dotnet-install.sh \
+        && dotnet --info; \
+    fi
+
+RUN if [[ "${HVA_CSHARP}" == "true" ]]; then \
+        dotnet tool install --global csharp-ls --version "${HVA_V_CSHARP_LS_VERSION}" \
+        && dotnet tool list --global | grep -q '^csharp-ls[[:space:]]'; \
+    fi
+
+RUN cat >> "$HOME/.bashrc" <<'EOF'
+alias lsa='ls -lha'
+alias vi='nvim'
+alias vim='nvim'
+
+export FNM_DIR="$HOME/.local/share/fnm"
+if [ -x "$FNM_DIR/fnm" ]; then
+  export PATH="$FNM_DIR:$PATH"
+  eval "$(fnm env --shell bash --use-on-cd)"
+fi
+
+ranger-cd() {
+  local tempfile="${HOME}/.rangerdir"
+  command ranger --choosedir="$tempfile" "$@"
+  if [ -f "$tempfile" ]; then
+    local ranger_dir
+    ranger_dir="$(cat "$tempfile")"
+    if [ -n "$ranger_dir" ]; then
+      cd "$ranger_dir" || return
+    fi
+    rm -f "$tempfile"
+  fi
+}
+
+alias ranger=ranger-cd
+EOF
+
+RUN if [[ "${HVA_CSHARP}" == "true" ]]; then \
+        printf '\nexport DOTNET_ROOT="$HOME/.dotnet"\nexport PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"\n' >> "$HOME/.bashrc"; \
+    fi
+
+USER root
+RUN export HOME="/home/${USERNAME}" FNM_DIR="/home/${USERNAME}/.local/share/fnm" PATH="$FNM_DIR:$PATH:/usr/local/bin:/usr/bin:/bin" \
+    && eval "$("$FNM_DIR/fnm" env --shell bash)" \
+    && "$FNM_DIR/fnm" use "${HVA_V_NODE_VERSION}" >/dev/null \
+    && for bin in fnm node npm npx corepack nanocoder typescript-language-server prettier eslint tsx pyright-langserver vscode-json-language-server vscode-html-language-server vscode-css-language-server yaml-language-server bash-language-server docker-langserver; do ln -sf "$(command -v "$bin")" "/usr/local/bin/$bin"; done \
+    && if [[ "${HVA_CSHARP}" == "true" ]]; then \
+         ln -sf "$(command -v dotnet)" /usr/local/bin/dotnet; \
+         ln -sf "$(command -v csharp-ls)" /usr/local/bin/csharp-ls; \
+       fi \
+    && ln -sf /usr/sbin/ifconfig /usr/local/bin/ifconfig \
+    && ln -sf "$(readlink -f /usr/local/bin/nanocoder)" /usr/local/bin/nanocoder-real \
+    && rm -f /usr/local/bin/nanocoder \
+    && chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}"
+
+COPY nanocoder-wrapper /usr/local/bin/nanocoder
+RUN chmod 0755 /usr/local/bin/nanocoder
+
+USER ${USERNAME}
+WORKDIR /workspace
+ARG DEV_IMAGE_SOURCE_HASH=unknown
+LABEL dev.hva.source-hash="${DEV_IMAGE_SOURCE_HASH}"
+CMD ["bash"]

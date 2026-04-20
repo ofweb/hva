@@ -1,0 +1,10 @@
+models/*
+.hva-state/
+benchmarking/results/
+env/env-source.sh
+.nano-coder-history
+.nanocoder/
+nanocoder/mcp.env
+nanocoder/logs/
+nanocoder/sessions/
+nanocoder/history/
