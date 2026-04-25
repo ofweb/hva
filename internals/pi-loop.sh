@@ -208,7 +208,6 @@ iteration=0
 phase="idle"
 current_target=""
 maintenance_phase="review"
-first_iteration=1
 final_state="finished"
 final_message="loop complete"
 
@@ -258,17 +257,9 @@ current_session_file() {
 
 run_prompt() {
   local prompt="$1"
-  local current_session=""
-
-  if current_session="$(current_session_file)"; then
-    :
-  elif (( first_iteration == 1 )) && [[ "${HVA_LOOP_NEW_SESSION:-0}" == "1" ]]; then
-    rm -f "$SESSION_STATE_FILE"
-  fi
 
   hva_ensure_pi_extension_deps
-  HVA_PI_SESSION_DIR="$SESSION_DIR" hva_run_pi "$current_session" -p "$prompt"
-  first_iteration=0
+  HVA_PI_SESSION_DIR="$SESSION_DIR" hva_run_pi "" -p "$prompt"
   HVA_PI_SESSION_DIR="$SESSION_DIR" HVA_PI_SESSION_STATE_FILE="$SESSION_STATE_FILE" /hva/internals/save-session.sh || true
 }
 
@@ -350,6 +341,7 @@ Run relevant checks when possible. Stop after one meaningful improvement.
 EOF
 }
 
+echo
 echo "=== hva loop ==="
 echo "task file: $TASK_FILE"
 echo "max iterations: $LOOP_MAX_ITERATIONS (0 = no limit)"

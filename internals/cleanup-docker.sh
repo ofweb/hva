@@ -100,7 +100,7 @@ if (( GLOBAL_BUILD_CACHE == 1 )); then
   echo "pruning global BuildKit cache..."
   buildx_args=(prune -f --max-used-space "${HVA_DOCKER_BUILD_CACHE_MAX_USED:-40gb}")
   if (( ALL_BUILD_CACHE == 1 )); then
-    buildx_args+=--all
+    buildx_args+=(--all)
   fi
   "${DOCKER[@]}" buildx "${buildx_args[@]}"
 else

@@ -24,6 +24,7 @@ Usage:
   hva --diff-review-staged     review staged git diff
   hva --diff-review-unstaged   review unstaged git diff
   hva --diff-review-all        review tracked + untracked git diff without touching real index
+
   hva --stop                   stop llama, searxng, and dev container
   hva --start-searxng          start SearXNG helper container
   hva --stop-searxng           stop SearXNG helper container
@@ -269,22 +270,45 @@ ensure_workspace_state_mount_target() {
 print_loop_status() {
   local status_file="$LOOP_STATE_DIR/status"
   local stop_file="$LOOP_STATE_DIR/stop"
+  local loop_log="$LOOP_STATE_DIR/loop.log"
 
-  if [[ -f "$status_file" ]]; then
-    cat "$status_file"
-    return
-  fi
-
-  if [[ -f "$stop_file" ]]; then
-    echo "state: stop_requested"
+  if [[ ! -f "$status_file" ]]; then
+    if [[ -f "$stop_file" ]]; then
+      echo "state: stop_requested"
+    else
+      echo "state: idle (no loop running for this workspace)"
+    fi
     echo "workspace: $WORKSPACE"
     echo "task_file: $LOOP_TASK_FILE"
+    [[ -f "$loop_log" ]] && echo "last_log: $loop_log"
     return
   fi
 
-  echo "state: idle"
-  echo "workspace: $WORKSPACE"
-  echo "task_file: $LOOP_TASK_FILE"
+  local _read_field
+  _read_field() { grep "^${1}:" "$status_file" 2>/dev/null | sed "s/^${1}:[[:space:]]*//" | head -1; }
+
+  local state phase iteration target pending done_count blocked elapsed msg
+  state="$(_read_field state)"
+  phase="$(_read_field phase)"
+  iteration="$(_read_field iteration)"
+  target="$(_read_field current_target)"
+  pending="$(_read_field pending_tasks)"
+  done_count="$(_read_field done_tasks)"
+  blocked="$(_read_field blocked_tasks)"
+  elapsed="$(_read_field elapsed_seconds)"
+  msg="$(_read_field message)"
+
+  local elapsed_fmt
+  elapsed_fmt="$(printf '%dm%ds' "$(( ${elapsed:-0} / 60 ))" "$(( ${elapsed:-0} % 60 ))")"
+
+  echo "state:      $state"
+  echo "phase:      $phase"
+  echo "iteration:  $iteration  (${elapsed_fmt} elapsed)"
+  echo "tasks:      done=${done_count:-0}  pending=${pending:-0}  blocked=${blocked:-0}"
+  [[ -n "$target" ]] && echo "current:    $target"
+  [[ -n "$msg" ]]    && echo "message:    $msg"
+  echo "task_file:  $LOOP_TASK_FILE"
+  echo "log:        $loop_log"
 }
 
 print_runtime_state() {
@@ -396,18 +420,6 @@ fi
 cleanup() {
   if [[ "$PROMPT_FILE_TEMP" == "1" && -n "$PROMPT_HOST_FILE" && -f "$PROMPT_HOST_FILE" ]]; then
     rm -f "$PROMPT_HOST_FILE"
-  fi
-
-  if declare -p PI_LENS_HOST_DIRS >/dev/null 2>&1 && [[ "${#PI_LENS_HOST_DIRS[@]}" -gt 0 ]]; then
-    local lens_dir
-    for lens_dir in "${PI_LENS_HOST_DIRS[@]}"; do
-      if [[ -n "${_pi_lens_host_dirs_preserve[$lens_dir]+x}" ]]; then
-        continue
-      fi
-      if [[ -d "$lens_dir" ]]; then
-        rm -rf "$lens_dir"
-      fi
-    done
   fi
 
   rm -f "$WORKSPACE_STATE_PLACEHOLDER_MARKER"
@@ -770,35 +782,42 @@ exec_args=(
 
 
 declare -A _pi_lens_roots_seen=()
-declare -A _pi_lens_host_dirs_preserve=()
-PI_LENS_TMPFS_TARGETS=()
-PI_LENS_HOST_DIRS=()
+PI_LENS_VOLUME_MOUNTS=()
+PI_LENS_WORKSPACE_DIRS=()  # host-side dirs Docker creates as mount scaffolding — deleted after container starts
 
-add_pi_lens_tmpfs_target() {
+add_pi_lens_volume_mount() {
   local root="$1"
-  local target="/workspace"
-  local lens_dir
-  local rel_path
+  local rel_path container_path state_path
 
   root="$(realpath "$root")"
   if [[ -z "${_pi_lens_roots_seen[$root]+x}" ]]; then
     _pi_lens_roots_seen["$root"]=1
-    lens_dir="$root/.pi-lens"
-    if [[ -e "$lens_dir" ]]; then
-      _pi_lens_host_dirs_preserve["$lens_dir"]=1
-    fi
-    PI_LENS_HOST_DIRS+=("$lens_dir")
-    if [[ "$root" != "$WORKSPACE" ]]; then
+    if [[ "$root" == "$WORKSPACE" ]]; then
+      state_path="$WORKSPACE_STATE_ROOT/pi-lens"
+      container_path="/workspace/.pi-lens"
+    else
       rel_path="${root#"$WORKSPACE"/}"
-      target="/workspace/$rel_path"
+      state_path="$WORKSPACE_STATE_ROOT/pi-lens-subs/$rel_path"
+      container_path="/workspace/$rel_path/.pi-lens"
     fi
-    PI_LENS_TMPFS_TARGETS+=("$target/.pi-lens")
+    mkdir -p "$state_path"
+    PI_LENS_VOLUME_MOUNTS+=("$state_path:$container_path")
+    PI_LENS_WORKSPACE_DIRS+=("$root/.pi-lens")
   fi
 }
 
-add_pi_lens_tmpfs_target "$WORKSPACE"
+# Remove empty .pi-lens scaffold dirs Docker creates on the host as mount points.
+# The volume mount still works inside the container — only the host-side artifact is removed.
+remove_pi_lens_host_artifacts() {
+  local lens_dir
+  for lens_dir in "${PI_LENS_WORKSPACE_DIRS[@]:-}"; do
+    rmdir "$lens_dir" 2>/dev/null || true
+  done
+}
+
+add_pi_lens_volume_mount "$WORKSPACE"
 while IFS= read -r -d '' manifest_path; do
-  add_pi_lens_tmpfs_target "$(dirname "$manifest_path")"
+  add_pi_lens_volume_mount "$(dirname "$manifest_path")"
 done < <(
   find "$WORKSPACE" \
     \( -name .git -o -name node_modules -o -name target -o -name .hva-state \) -prune -o \
@@ -827,8 +846,8 @@ start_docker_args=(
   -w /workspace
 )
 
-for target in "${PI_LENS_TMPFS_TARGETS[@]}"; do
-  start_docker_args+=(--tmpfs "$target:rw,noexec,nosuid,nodev,size=50m")
+for _mount in "${PI_LENS_VOLUME_MOUNTS[@]}"; do
+  start_docker_args+=(-v "$_mount")
 done
 
 if [[ "$HVA_DOCKER_NETWORK_MODE" == "host" ]]; then
@@ -982,4 +1001,107 @@ if ! dev_container_is_reusable; then
   ensure_dev_image
   ensure_dev_container
 fi
-"${DOCKER[@]}" exec "${exec_args[@]}" "$dev_name" "$@"
+
+remove_pi_lens_host_artifacts
+
+if [[ "$MODE" == "loop" ]]; then
+  loop_log="$LOOP_STATE_DIR/loop.log"
+  mkdir -p "$LOOP_STATE_DIR"
+  rm -f "$LOOP_STATE_DIR/status" "$loop_log"
+
+  # strip tty/stdin flags — loop runs detached
+  loop_exec_args=()
+  for _arg in "${exec_args[@]}"; do
+    case "$_arg" in -i|-it|-t) continue ;; esac
+    loop_exec_args+=("$_arg")
+  done
+
+  # snapshot task counts before starting
+  pending_start=0; done_start=0
+  if [[ -f "$LOOP_TASK_FILE" ]]; then
+    pending_start="$(grep -Eic '^[[:space:]]*[-*+][[:space:]]+\[[[:space:]]*\][[:space:]]+' "$LOOP_TASK_FILE" 2>/dev/null || true)"
+    pending_start="${pending_start:-0}"
+    done_start="$(grep -Eic '^[[:space:]]*[-*+][[:space:]]+\[[xX]\][[:space:]]+' "$LOOP_TASK_FILE" 2>/dev/null || true)"
+    done_start="${done_start:-0}"
+  fi
+
+  "${DOCKER[@]}" exec "${loop_exec_args[@]}" "$dev_name" "$@" >"$loop_log" 2>&1 &
+  loop_pid=$!
+
+  cleanup_loop() {
+    echo
+    echo "stopping (finishing current iteration)..."
+    : > "$LOOP_STATE_DIR/stop"
+    wait "$loop_pid" 2>/dev/null || true
+    echo "stopped. log: $loop_log"
+    exit 0
+  }
+  trap cleanup_loop INT TERM
+
+  read_status_field() {
+    local field="$1"
+    grep "^${field}:" "$LOOP_STATE_DIR/status" 2>/dev/null \
+      | sed "s/^${field}:[[:space:]]*//" | head -1
+  }
+
+  elapsed_fmt() {
+    local s="${1:-0}"
+    printf '%dm%ds' "$(( s / 60 ))" "$(( s % 60 ))"
+  }
+
+  echo "tasks:  ${pending_start} pending, ${done_start} done"
+  echo "log:    $loop_log"
+  echo "stop:   Ctrl+C  or  hva --loop-stop"
+  echo
+
+  last_key=""; waiting_shown=0
+  while kill -0 "$loop_pid" 2>/dev/null; do
+    if [[ ! -f "$LOOP_STATE_DIR/status" ]]; then
+      if (( waiting_shown == 0 )); then
+        echo "starting..."; waiting_shown=1
+      fi
+      sleep 1; continue
+    fi
+
+    _state="$(read_status_field state)"
+    _phase="$(read_status_field phase)"
+    _iter="$(read_status_field iteration)"
+    _target="$(read_status_field current_target)"
+    _pending="$(read_status_field pending_tasks)"
+    _done="$(read_status_field done_tasks)"
+    _key="${_iter}:${_phase}:${_state}"
+
+    if [[ "$_key" != "$last_key" && -n "$_iter" && "$_iter" != "0" ]]; then
+      _elapsed="$(read_status_field elapsed_seconds)"
+      _context=""
+      if [[ "${_pending:-0}" == "0" && ( "$_phase" == "review" || "$_phase" == "improve" ) ]]; then
+        _context=" — all tasks done"
+      fi
+      echo "[$(elapsed_fmt "${_elapsed}")] iter ${_iter} — ${_phase}: ${_target:-…} (done: ${_done:-0}, pending: ${_pending:-0})${_context}"
+      last_key="$_key"
+    fi
+
+    if [[ "$_state" == "finished" || "$_state" == "stopped" ]]; then break; fi
+    sleep 2
+  done
+
+  wait "$loop_pid" 2>/dev/null || true
+  trap - INT TERM
+
+  echo
+  if [[ -f "$LOOP_STATE_DIR/status" ]]; then
+    _fstate="$(read_status_field state)"
+    _fmsg="$(read_status_field message)"
+    _fiter="$(read_status_field iteration)"
+    _fpending="$(read_status_field pending_tasks)"
+    _fdone="$(read_status_field done_tasks)"
+    _felapsed="$(read_status_field elapsed_seconds)"
+    echo "=== loop ${_fstate:-done} ($(elapsed_fmt "${_felapsed}")) ==="
+    echo "iterations: ${_fiter:-0}  |  done: ${_fdone:-0}  |  pending: ${_fpending:-0}"
+    [[ -n "$_fmsg" ]] && echo "${_fmsg}"
+    echo "log: $loop_log"
+  fi
+else
+  "${DOCKER[@]}" exec "${exec_args[@]}" "$dev_name" "$@"
+fi
+

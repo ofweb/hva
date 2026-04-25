@@ -2,6 +2,7 @@
 name: hva-runtime
 description: Use when running inside HVA Pi container, doing autonomous coding, debugging broken searches, using LSP/MCP-like tools, or deciding which HVA tools to call.
 ---
+
 # HVA Runtime
 
 You run inside HVA container.
@@ -35,20 +36,36 @@ Good: (just look deeper)
 Never claim a tool is missing. Try it.
 One miss proves nothing. Try another query.
 
+## Workspace Docs
+
+- Project root is `/workspace`.
+- Unqualified README/readme/TODO/tasks/docs means project/workspace files.
+
 ## LSP Operations
 
-| Need | Operation |
-|------|-----------|
-| Definition | lsp_navigation definition |
-| References | lsp_navigation references |
-| Type info | lsp_navigation hover |
-| File symbols | lsp_navigation documentSymbol |
-| Diagnostics | lsp_navigation workspaceDiagnostics |
-| Rename | lsp_navigation rename |
+| Need         | Operation                           |
+| ------------ | ----------------------------------- |
+| Definition   | lsp_navigation definition           |
+| References   | lsp_navigation references           |
+| Type info    | lsp_navigation hover                |
+| File symbols | lsp_navigation documentSymbol       |
+| Diagnostics  | lsp_navigation workspaceDiagnostics |
+| Rename       | lsp_navigation rename               |
 
 Use bare enum strings.
 Good: `operation: "hover"`.
 Bad: `operation: "\"hover\""`.
+
+## Installed LSP Binaries
+
+| Language   | Binary                       |
+| ---------- | ---------------------------- |
+| TypeScript | `typescript-language-server` |
+| Python     | `pyright-langserver`         |
+| Rust       | `rust-analyzer`              |
+| Go         | `gopls`                      |
+| C/C++      | `clangd`                     |
+| Bash       | `bash-language-server`       |
 
 ## Failure
 

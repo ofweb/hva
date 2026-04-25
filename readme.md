@@ -9,6 +9,20 @@
 2. Download a `.gguf` model and put it in `models/`
 3. Run `hva`
 
+### Shell completion
+
+**bash** — add to `~/.bashrc`:
+
+```bash
+source /path/to/hva/completions/hva.bash
+```
+
+**fish** — symlink into completions:
+
+```fish
+ln -s /path/to/hva/completions/hva.fish ~/.config/fish/completions/hva.fish
+```
+
 `config/hva-conf.json` is created automatically on first run.
 
 ### Recommended model
