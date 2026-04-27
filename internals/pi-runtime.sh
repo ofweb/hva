@@ -35,7 +35,7 @@ hva_pi_base_args() {
     --no-skills \
     --extension "$ext_dir/agent-guidance.ts" \
     --extension "$ext_dir/mcp-tools.ts" \
-    --skill "$skills_dir/hva-runtime" \
+    --skill "$skills_dir" \
     --extension "$ext_dir/node_modules/pi-lens/index.ts" \
     --skill "$ext_dir/node_modules/pi-lens/skills" \
     --no-read-guard

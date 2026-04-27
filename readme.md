@@ -32,13 +32,13 @@
 
 ## Shell Completion
 
-**bash** — add to `~/.bashrc`:
+**bash** - add to `~/.bashrc`:
 
 ```bash
 source /path/to/hva/completions/hva.bash
 ```
 
-**fish** — symlink into completions:
+**fish** - symlink into completions:
 
 ```fish
 ln -s /path/to/hva/completions/hva.fish ~/.config/fish/completions/hva.fish
@@ -77,8 +77,8 @@ hva --cleanup-docker --apply prune HVA containers/images (--volumes, --global-bu
 
 ## Config
 
-`config/hva-conf.json` — all settings (model, context, sampling, mounts, MCP). See `config/hva-conf.json.sample`.  
-`config/hva-secrets.json` — optional secrets (gitignored). See `config/hva-secrets.json.sample`.  
+`config/hva-conf.json` - all settings (model, context, sampling, mounts, MCP). See `config/hva-conf.json.sample`.
+`config/hva-secrets.json` - optional secrets (gitignored). See `config/hva-secrets.json.sample`.
 Full config reference and one-shot env overrides: [docs/docker.md](docs/docker.md).
 
 ## More info
@@ -88,3 +88,8 @@ Full config reference and one-shot env overrides: [docs/docker.md](docs/docker.m
 - [Pi Packages](https://pi.dev/packages)
 - [Docker Setup](docs/docker.md)
 - [Local Host Setup](docs/local.md)
+
+## Adding a skill
+
+- [docs/new-skill.md](docs/new-skill.md) - how to add a skill or extension. [docs/skill-basics.md](docs/skill-basics.md) for the mental model.
+- Try opening `hva` and calling `/skill:hva-new-skill`

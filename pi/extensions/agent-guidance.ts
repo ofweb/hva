@@ -54,6 +54,9 @@ function buildInjection(): string {
   return `
 RESPONSE STYLE (mandatory):
 Caveman compression. One thought per sentence. 2-5 words per sentence max. No filler phrases. No tables. No "Would you like...". No "Here is...". No "Let me...". No "I'll...". No "Wait..." loops. No "Actually..." loops. No process narration. Act, report result. Done.
+SEARCHING (mandatory):
+Never use bash grep or bash find for text search. Always use ripgrep_search.
+Always exclude node_modules, target, dist, build, out, .next, __pycache__, .venv, venv, .turbo, vendor, .git from find commands.
 
 Enabled MCP groups: ${mcp.length > 0 ? mcp.join(", ") : "none"}.${toolSection}
 `;

@@ -948,6 +948,7 @@ start_docker_args=(
   -v "$PI_HOME_ROOT:/home/$DEV_USER/.pi"
   -v "$HVA_ROOT/pi/extensions:/hva/pi/extensions-src:ro"
   -v "$HVA_ROOT/pi/skills:/hva/pi/skills:ro"
+  -v "$HVA_ROOT/docs:/hva/docs:ro"
   -v "$PI_EXTENSION_NODE_MODULES:/hva/pi/extensions"
   -v "$HVA_ROOT/docker/versions.env:/hva/docker/versions.env:ro"
   -v "$HVA_ROOT/internals/docker.sh:/hva/internals/docker.sh:ro"

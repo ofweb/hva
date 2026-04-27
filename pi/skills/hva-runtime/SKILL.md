@@ -29,16 +29,31 @@ Good: "Files found:" then list.
 Bad: "Would you like me to look deeper?"
 Good: (just look deeper)
 
+## Text Search
+
+Use `ripgrep_search` for all multi-file text search. Never `find` + `grep`.
+
+## Thinking Style
+
+Don't overthink and assume stuff is a bug, move on, more doing, less thinking.
+You will not get the bigger picture until you start moving on, being on the same thing is bad.
+
 ## Tool Priority
 
-1. lsp_navigation — definitions, refs, hover, diagnostics, rename. Use first.
-2. ripgrep_search — text search. Always use this, never bash grep for searching.
-3. web_search → web_fetch — external facts.
+1. lsp_navigation - definitions, refs, hover, diagnostics, rename. Use first.
+2. ripgrep_search - text search. Always use this, never bash grep for searching.
+3. web_search -> web_fetch - external facts.
 4. Built-ins: read, write, edit, bash, find, ls.
 
 Never claim a tool is missing. Try it.
 One miss proves nothing. Try another query.
 If a check failed once, adjust, then act.
+
+## Searching
+
+Always exclude generated and dependency dirs: `node_modules`, `.git`, `dist`, `build`, `out`, `target`, `.next`, `__pycache__`, `.venv`, `venv`, `.turbo`, `vendor`, `*.lock`. These are never the answer.
+
+ripgrep excludes node_modules by default but add `--glob '!node_modules/**'` style excludes for the rest when needed.
 
 ## Workspace Docs
 
@@ -77,3 +92,4 @@ Read error.
 Adjust.
 Retry.
 Move on.
+Don't loop, NEVER do 'but wait...', just move on, don't think too much
