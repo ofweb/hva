@@ -96,12 +96,28 @@ hva_detect_docker_network_mode() {
   return 1
 }
 
+hva_network_uses_service_dns() {
+  local mode="$1"
+
+  case "$mode" in
+    ""|host|bridge|none|container:*)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
 hva_llama_base_url_for_network() {
   local mode="$1"
   local host_port="$2"
+  local container_name="${LLAMA_CONTAINER:-hva-llama-server}"
 
   if [[ "$mode" == "host" ]]; then
     printf 'http://127.0.0.1:%s/v1\n' "$host_port"
+  elif hva_network_uses_service_dns "$mode"; then
+    printf 'http://%s:8080/v1\n' "$container_name"
   else
     printf 'http://host.docker.internal:%s/v1\n' "$host_port"
   fi
@@ -110,9 +126,12 @@ hva_llama_base_url_for_network() {
 hva_searxng_url_for_network() {
   local mode="$1"
   local host_port="$2"
+  local container_name="${SEARXNG_CONTAINER:-hva-searxng}"
 
   if [[ "$mode" == "host" ]]; then
     printf 'http://127.0.0.1:%s\n' "$host_port"
+  elif hva_network_uses_service_dns "$mode"; then
+    printf 'http://%s:8080\n' "$container_name"
   else
     printf 'http://host.docker.internal:%s\n' "$host_port"
   fi

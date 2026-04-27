@@ -1,7 +1,7 @@
 # Hva'? (hva) - Local LLM Vibe Coding Setup - Using 'Pi Coding Agent' + 'llama.cpp'
 
-- Local llama.cpp server (runs the LLM) [Github Link](https://github.com/ggml-org/llama.cpp)
-- Pi coding agent in dev container (yolo mode in a container with no git) [Github Link](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent)
+- Local llama.cpp server (which runs the LLM) [Github Link](https://github.com/ggml-org/llama.cpp)
+- Pi coding agent in a dev container (yolo mode with no git) [Github Link](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent)
 
 ## Quick start
 
@@ -11,13 +11,24 @@
 
 `config/hva-conf.json` is created automatically on first run.
 
-### Recommended models (Entire model does not have to be in VRAM)
+## Recommended Models (Entire model does not have to be in VRAM)
 
+### Qwen3.6-35B-A3B-Abliterix-EGA-abliterated
+
+- Best relative speed/performance/vram usage (try to use Q4_K_M even on low VRAM) but no 'ara' variant yet (will come soon)
+- Model Page [Link](https://huggingface.co/mradermacher/Qwen3.6-35B-A3B-Abliterix-EGA-abliterated-i1-GGUF)
 - [i1-IQ3_S download (15.4 Gb)](https://huggingface.co/mradermacher/Qwen3.6-35B-A3B-Abliterix-EGA-abliterated-i1-GGUF/resolve/main/Qwen3.6-35B-A3B-Abliterix-EGA-abliterated.i1-IQ3_S.gguf)
 - [i1-Q4_K_M download (21.3 Gb)](https://huggingface.co/mradermacher/Qwen3.6-35B-A3B-Abliterix-EGA-abliterated-i1-GGUF/resolve/main/Qwen3.6-35B-A3B-Abliterix-EGA-abliterated.i1-Q4_K_M.gguf)
 - [i1-Q5_K_M download (24.8 Gb)](https://huggingface.co/mradermacher/Qwen3.6-35B-A3B-Abliterix-EGA-abliterated-i1-GGUF/resolve/main/Qwen3.6-35B-A3B-Abliterix-EGA-abliterated.i1-Q5_K_M.gguf)
+- [i1-Q6_K download (28.5 Gb)](https://huggingface.co/mradermacher/Qwen3.6-35B-A3B-Abliterix-EGA-abliterated-i1-GGUF/resolve/main/Qwen3.6-35B-A3B-Abliterix-EGA-abliterated.i1-Q6_K.gguf)
 
-- The model page: [Qwen3.6-35B-A3B-Abliterix-EGA-abliterated-i1-GGUF](https://huggingface.co/mradermacher/Qwen3.6-35B-A3B-Abliterix-EGA-abliterated-i1-GGUF)
+### Qwen3.6-27B-heretic-ara
+
+- ONLY USE IF YOU HAVE TOO MUCH VRAM / DON'T CARE ABOUT SPEED (VRAM usage compared to '35B-A3B' is a 2 Gb -> 9Gb jump) + no 'i1' yet
+- Model Page [Link](https://huggingface.co/SassyDiffusion/Qwen3.6-27B-heretic-ara-GGUF)
+- [Q5_K_XL download (20.3 Gb)](https://huggingface.co/SassyDiffusion/Qwen3.6-27B-heretic-ara-GGUF/resolve/main/Qwen3.6-27B-heretic-ara.Q5_K_XL.gguf)
+- [Q6_K_XL download (25.6 Gb)](https://huggingface.co/SassyDiffusion/Qwen3.6-27B-heretic-ara-GGUF/resolve/main/Qwen3.6-27B-heretic-ara.Q6_K_XL.gguf)
+- [Q8_K_XL download (35.3 Gb)](https://huggingface.co/SassyDiffusion/Qwen3.6-27B-heretic-ara-GGUF/resolve/main/Qwen3.6-27B-heretic-ara.Q8_K_XL.gguf)
 
 ## Shell Completion
 

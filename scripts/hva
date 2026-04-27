@@ -238,7 +238,6 @@ fi
 LOOP_TASK_FILE="$WORKSPACE/tasks.md"
 LOOP_STATE_DIR="$HVA_STATE_ROOT/workspaces/$safe_workspace_name-$workspace_hash/loop"
 WORKSPACE_STATE_ROOT="$HVA_STATE_ROOT/workspaces/$safe_workspace_name-$workspace_hash"
-WORKSPACE_STATE_PLACEHOLDER_MARKER="$WORKSPACE_STATE_ROOT/mount.placeholder"
 
 create_loop_tasks_file() {
   local template="$HVA_ROOT/pi/tasks-template.md"
@@ -259,10 +258,6 @@ create_loop_tasks_file() {
 
 ensure_workspace_state_mount_target() {
   mkdir -p "$WORKSPACE_STATE_ROOT"
-
-  if [[ -f "$WORKSPACE_STATE_PLACEHOLDER_MARKER" ]]; then
-    rm -f "$WORKSPACE_STATE_PLACEHOLDER_MARKER"
-  fi
 }
 
 print_loop_status() {
@@ -446,11 +441,22 @@ cleanup() {
     fi
   done
 
-  rm -f "$WORKSPACE_STATE_PLACEHOLDER_MARKER"
-
   if declare -F remove_pi_lens_host_artifacts >/dev/null 2>&1; then
     remove_pi_lens_host_artifacts
   fi
+
+  # Remove any .pi-lens dirs written directly into the workspace during the session
+  # (dirs created at runtime won't have a volume mount, so pi-lens writes there directly)
+  local _cleanup_lens_dir
+  while IFS= read -r -d '' _cleanup_lens_dir; do
+    if [[ -z "${_pi_lens_preexisting["$_cleanup_lens_dir"]+x}" ]]; then
+      rm -rf "$_cleanup_lens_dir"
+    fi
+  done < <(find "$WORKSPACE" \
+    \( -name .git -o -name node_modules -o -name target -o -name .hva-state \
+       -o -name dist -o -name build -o -name out -o -name .next \
+       -o -name __pycache__ -o -name .venv -o -name venv -o -name .turbo \) -prune -o \
+    -type d -name '.pi-lens' -print0 2>/dev/null)
 }
 
 trap cleanup EXIT
@@ -558,7 +564,13 @@ prepare_prompt_mode
 
 source "$SCRIPT_DIR/../internals/docker-network.sh"
 
+REQUESTED_DOCKER_NETWORK="$(hva_requested_docker_network)"
+FORCED_DOCKER_NETWORK_MODE="${HVA_DOCKER_NETWORK_MODE:-}"
 HVA_DOCKER_NETWORK_MODE="$(hva_detect_docker_network_mode)"
+
+if [[ -z "$FORCED_DOCKER_NETWORK_MODE" && "$REQUESTED_DOCKER_NETWORK" != "host" && "$REQUESTED_DOCKER_NETWORK" != "none" && "$HVA_DOCKER_NETWORK_MODE" == "host" ]]; then
+  echo "could not use \"$REQUESTED_DOCKER_NETWORK\"; using host mode" >&2
+fi
 
 if [[ "$HVA_MODE" == "local-pi" ]]; then
   if [[ -z "${SEARXNG_URL:-}" || "${SEARXNG_URL:-}" == "http://host.docker.internal:8888" ]]; then
@@ -721,6 +733,17 @@ ensure_searxng_server() {
 
 declare -A _pi_lens_local_roots_seen=()
 PI_LENS_LOCAL_SYMLINKS=()
+declare -A _pi_lens_preexisting=()
+
+# Snapshot ALL existing .pi-lens dirs before the session starts so the cleanup
+# sweep never deletes user data that was there before hva ran.
+while IFS= read -r -d '' _preexisting_lens; do
+  _pi_lens_preexisting["$_preexisting_lens"]=1
+done < <(find "$WORKSPACE" \
+  \( -name .git -o -name node_modules -o -name target -o -name .hva-state \
+     -o -name dist -o -name build -o -name out -o -name .next \
+     -o -name __pycache__ -o -name .venv -o -name venv -o -name .turbo \) -prune -o \
+  -type d -name '.pi-lens' -print0 2>/dev/null)
 
 add_local_pi_lens_symlink() {
   local root="$1"
@@ -743,6 +766,7 @@ add_local_pi_lens_symlink() {
   mkdir -p "$state_path"
 
   if [[ -e "$link_path" || -L "$link_path" ]]; then
+    _pi_lens_preexisting["$link_path"]=1
     return
   fi
 
@@ -757,7 +781,9 @@ init_local_pi_lens_symlinks() {
     add_local_pi_lens_symlink "$(dirname "$manifest_path")"
   done < <(
     find "$WORKSPACE" \
-      \( -name .git -o -name node_modules -o -name target -o -name .hva-state \) -prune -o \
+      \( -name .git -o -name node_modules -o -name target -o -name .hva-state \
+         -o -name dist -o -name build -o -name out -o -name .next \
+         -o -name __pycache__ -o -name .venv -o -name venv -o -name .turbo \) -prune -o \
       \( -name package.json -o -name Cargo.toml -o -name pyproject.toml -o -name go.mod -o -name Gemfile -o -name composer.json -o -name pom.xml -o -name build.gradle -o -name build.gradle.kts \) \
       -print0 2>/dev/null
   )
@@ -883,6 +909,8 @@ add_pi_lens_volume_mount() {
     PI_LENS_VOLUME_MOUNTS+=("$state_path:$container_path")
     if [[ ! -e "$root/.pi-lens" ]]; then
       PI_LENS_WORKSPACE_DIRS+=("$root/.pi-lens")
+    else
+      _pi_lens_preexisting["$root/.pi-lens"]=1
     fi
   fi
 }
@@ -901,7 +929,9 @@ while IFS= read -r -d '' manifest_path; do
   add_pi_lens_volume_mount "$(dirname "$manifest_path")"
 done < <(
   find "$WORKSPACE" \
-    \( -name .git -o -name node_modules -o -name target -o -name .hva-state \) -prune -o \
+    \( -name .git -o -name node_modules -o -name target -o -name .hva-state \
+       -o -name dist -o -name build -o -name out -o -name .next \
+       -o -name __pycache__ -o -name .venv -o -name venv -o -name .turbo \) -prune -o \
     \( -name package.json -o -name Cargo.toml -o -name pyproject.toml -o -name go.mod -o -name Gemfile -o -name composer.json -o -name pom.xml -o -name build.gradle -o -name build.gradle.kts \) \
     -print0 2>/dev/null
 )

@@ -18,8 +18,5 @@ latest_session="$(
 
 if [[ -n "$latest_session" ]]; then
   mkdir -p "$(dirname "$state_file")"
-  if [[ "$latest_session" == /workspace/* ]]; then
-    latest_session="${latest_session#/workspace/}"
-  fi
   printf '%s\n' "$latest_session" > "$state_file"
 fi
