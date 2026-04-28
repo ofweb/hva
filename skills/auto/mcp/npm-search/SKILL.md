@@ -1,6 +1,6 @@
 ---
 name: npm-search
-description: Use for npm packages.
+description: "Use first for npm package names, versions, metadata, and release lookup."
 ---
 
 # npm Search

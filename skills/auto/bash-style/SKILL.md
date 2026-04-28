@@ -1,6 +1,6 @@
 ---
 name: bash-style
-description: Use for bash and shell.
+description: "Use for bash and shell."
 ---
 
 # Shell Safety

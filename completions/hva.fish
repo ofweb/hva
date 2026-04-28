@@ -8,6 +8,7 @@ complete -c hva -f
 complete -c hva -l local              -d "Start/reuse llama, open host Pi"
 complete -c hva -l bash               -d "Shell in dev container (no llama wait)"
 complete -c hva -l new                -d "Fresh Pi session (clears resume state)"
+complete -c hva -l new-hard           -d "Fresh Pi session and recreate dev container"
 complete -c hva -l msg            -r  -d "One-shot Pi message"
 complete -c hva -l prompt         -r  -d "One-shot Pi prompt (alias for --msg)"
 complete -c hva -l prompt-file    -rF -d "One-shot Pi prompt from file"

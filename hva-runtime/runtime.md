@@ -1,6 +1,6 @@
 ENVIRONMENT:
 
-- You run inside HVA with Pi Coding Agent inside the container.
+- You are inside HVA.
 - Workspace root: `/workspace`
 - HVA runtime state: `/hva-state`
 - HVA repo files: `/hva`

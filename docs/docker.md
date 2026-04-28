@@ -1,17 +1,8 @@
 # Docker reference
 
-Docker is the default HVA path: llama.cpp runs in Docker and Pi runs inside the dev container.
+README is the main page.
 
-The README is the quick-start page. This file is only the Docker-specific reference: config keys, one-shot env overrides, and the few behavior details that are easy to forget.
-
-## What matters
-
-- Host requirements: Linux shell, Docker, `curl`, `jq`, `awk`, `grep`, and coreutils
-- GPU is optional: NVIDIA (CUDA), AMD (ROCm), Intel (Vulkan), or CPU-only all work
-- Put `.gguf` files in `models/`
-- `config/hva-conf.json` is created automatically on first `hva`, or explicitly with `./internals/sync-config.sh`
-- `config/hva-secrets.json` is optional and should be created from `config/hva-secrets.json.sample`
-- If exactly one `.gguf` exists, `LLAMA_MODEL` can stay empty and HVA auto-selects it
+This file only keeps the Docker-specific bits that are still worth remembering.
 
 ## Persistent config
 
@@ -67,7 +58,7 @@ HVA_CSHARP
 
 ## One-shot host env overrides
 
-These are host-side overrides for a single command. They do not persist.
+These only affect one command run.
 
 ```text
 HVA_RESTART_LLAMA=1
@@ -79,66 +70,25 @@ HVA_LLAMA_WAIT_TIMEOUT=120
 HVA_LLAMA_LOG_TAIL=200
 ```
 
-If you change llama-related config, restart it with:
+If you change llama-side config, restart llama with:
 
 ```bash
 HVA_RESTART_LLAMA=1 hva
 ```
 
-After `hva --llama-cpp-update`, restart llama the same way so the new image is used.
+## Docker notes
 
-## Docker-specific behavior
+- HVA state lives under `.hva-state/`
+- The target repo stays clean. HVA does not write agent files, skills, or extensions into it
+- Pi sessions live under `.hva-state/workspaces/<workspace-hash>/pi-sessions/`
+- HVA loads its own extensions, skills, and runtime guidance explicitly
+- When `LLAMA_NETWORK` works, the dev container talks to llama and SearXNG by container name on that shared network
+- If bridge networking is broken, HVA falls back to host mode and remembers that in `.hva-state/docker-network-mode`
+- Use `hva --new-hard` after changing dev-container mounts, env passthrough, helper mounts, or startup wiring
 
-- HVA-owned runtime state lives under `.hva-state/`
-- The target project does not get HVA state, AGENTS files, extensions, or skills written into it
-- Pi sessions live under `.hva-state/workspaces/<workspace-hash>/pi-sessions/` and use Pi's built-in `--continue`
-- Pi extension dependencies install into HVA `.hva-state/`, so normal Docker mode does not need host Node
-- `HVA_MCP_*` and `SEARXNG_URL` are passed into the container explicitly. Missing passthrough fails fast
-- Pi resource auto-discovery is disabled in Docker mode. HVA extensions, root skills, and injected runtime guidance are loaded explicitly
-- When HVA can use a user-defined Docker network such as `LLAMA_NETWORK=hva-net`, the dev container talks to llama and SearXNG by container name on that shared network
-- If Docker bridge networking is broken on the host, HVA falls back to host networking and caches the last working mode in `.hva-state/docker-network-mode`
-- If `searxng` is enabled in `HVA_MCP_ENABLED`, HVA starts the helper automatically before Pi opens
-- Visible Pi thinking is post-processed into a terse telegraph style before UI render/session persistence. This changes display/context carryover, not model-side reasoning token spend
-
-Security-sensitive mount behavior is documented in `caveats.md`.
-
-## Files
-
-Tracked inputs:
-
-```text
-config/hva-conf.json.sample
-config/hva-secrets.json.sample
-docker/versions.env
-pi/extensions/
-hva-runtime/
-skills/
-pi/render-models.sh
-pi/render-settings.sh
-pi/tasks-template.md
-```
-
-Generated:
-
-```text
-config/hva-conf.json
-config/hva-secrets.json
-.hva-state/
-```
-
-Workspace-generated:
-
-```text
-tasks.md
-```
+Security-sensitive mounts are documented in `caveats.md`.
 
 ## Troubleshooting
-
-Model missing:
-
-- Check `LLAMA_MODELS`
-- Check `LLAMA_MODEL`
-- Check that the `.gguf` file exists at the expected filename
 
 Llama not ready:
 
@@ -147,24 +97,8 @@ hva --healthcheck --tail 8000
 hva --llama-cpp-logs-full
 ```
 
-GPU detection:
+If the wrong model or backend is starting:
 
-```bash
-# NVIDIA
-nvidia-smi
-docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
-# AMD ROCm
-rocm-smi
-# Intel
-clinfo | grep -i intel
-```
-
-`LLAMA_GPU_VENDOR` can be set explicitly to `nvidia`, `amd`, `intel`, `cpu`, or `none` to skip auto-detection.
-
-`LLAMA_IMAGE` overrides the auto-selected backend image.
-
-Port conflict:
-
-```bash
-HVA_RESTART_LLAMA=1 hva
-```
+- check `LLAMA_MODEL`
+- check `LLAMA_IMAGE`
+- check `LLAMA_GPU_VENDOR`

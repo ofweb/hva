@@ -16,7 +16,7 @@ skills/auto/my-skill/SKILL.md
 ```markdown
 ---
 name: my-skill
-description: Use when doing X.
+description: "Use when doing X."
 ---
 
 Instructions here.
@@ -27,10 +27,14 @@ To make it manual only (hidden from LLM, load with `/skill:my-skill`):
 ```markdown
 ---
 name: my-skill
-description: Does X.
+description: "Does X."
 disable-model-invocation: true
 ---
 ```
+
+Quote skill `description` values in frontmatter.
+
+This avoids YAML breaking when the text contains `:` or similar punctuation.
 
 HVA-specific skills live under `skills-hva/`.
 

@@ -1,6 +1,6 @@
 ---
 name: hva-git-review
-description: Use first for local git diff review when git is mounted.
+description: "Use for explicit local diff review targets inside HVA."
 ---
 
 # HVA Git Review

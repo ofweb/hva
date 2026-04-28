@@ -1,5 +1,4 @@
 GIT:
 
-- No git access.
-- The git folder is not mounted.
+- Git is not mounted.
 - Never use git commands here.

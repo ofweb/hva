@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Make a tracked plan.
+description: "Make a tracked plan."
 disable-model-invocation: true
 ---
 

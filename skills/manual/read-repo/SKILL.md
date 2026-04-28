@@ -1,6 +1,6 @@
 ---
 name: read-repo
-description: Load a repo into context.
+description: "Load a repo into context."
 disable-model-invocation: true
 ---
 

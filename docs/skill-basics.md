@@ -12,6 +12,8 @@ TypeScript, hooked into `before_agent_start`. Runs every turn, no LLM involved.
 
 Pi injects a catalog at session start with just name + description (~50 tokens each). LLM reads the full `SKILL.md` via the `read` tool when the task matches.
 
+Quote skill `description` values in frontmatter.
+
 - `skills/auto/documentation` and `skills/auto/review` (normal context-loaded skills)
 
 ### Manual skills

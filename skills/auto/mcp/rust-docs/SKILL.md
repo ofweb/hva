@@ -1,6 +1,6 @@
 ---
 name: rust-docs
-description: Use for Rust crates, docs.rs, and crate versions.
+description: "Use first for Rust crate names, latest versions, docs.rs pages, features, and dependency questions."
 ---
 
 # Rust Docs

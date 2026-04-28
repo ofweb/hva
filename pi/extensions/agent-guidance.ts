@@ -8,16 +8,6 @@ const baseDir = dirname(fileURLToPath(import.meta.url));
 const optionalSkillsBaseDir = join(baseDir, "..", "..", "skills", "auto", "mcp");
 const runtimeBaseDir = join(baseDir, "..", "..", "hva-runtime");
 
-const KNOWN_MCP = [
-  "ripgrep",
-  "searxng",
-  "brave-search",
-  "github",
-  "npm-search",
-  "pypi",
-  "rust-docs",
-] as const;
-
 const MANUAL_SKILL_CHOICES = [
   { name: "hva-new-skill", description: "make or change HVA skills and extensions" },
   { name: "hva-review", description: "HVA repo review checklist" },
@@ -42,17 +32,18 @@ const AUTO_SKILLS = [
   "bash-style - bash and shell writing",
   "documentation - markdown and docs writing",
   "review - soft code review",
+  "git - git status, history, branches, diffs, and inside-session git rules",
   "ast-grep - structural code search and rewrite",
   "lsp-navigation - definitions, refs, diagnostics, symbols",
 ] as const;
 
 const OPTIONAL_MCP_SKILLS = {
-  ripgrep: "ripgrep - workspace text search with ripgrep_search",
-  searxng: "searxng - web_search and web_fetch for outside facts",
-  "rust-docs": "rust-docs - crates_search, crates_package_info, docs_rs_read",
-  github: "github - repo code search and file lookup",
-  pypi: "pypi - Python package lookup",
-  "npm-search": "npm-search - npm package lookup",
+  ripgrep: "ripgrep - first stop for workspace text, mentions, config keys, logs, and matching files",
+  searxng: "searxng - outside facts and web lookup after the more specific tools",
+  "rust-docs": "rust-docs - first stop for Rust crates, docs.rs, versions, features, and deps",
+  github: "github - first stop for upstream GitHub repo code, files, PRs, issues, and commits",
+  pypi: "pypi - first stop for Python package names, versions, and metadata",
+  "npm-search": "npm-search - first stop for npm package names, versions, and metadata",
 } as const;
 
 const GIT_COMMAND_CHOICES = [
@@ -63,10 +54,6 @@ const GIT_COMMAND_CHOICES = [
   { label: "review vs branch...", mode: "branch" },
   { label: "review vs commit...", mode: "commit" },
 ] as const;
-
-function enabledMcpNames(): string[] {
-  return KNOWN_MCP.filter((name) => enabledMcp(name));
-}
 
 function enabledOptionalSkillNames(): Array<keyof typeof OPTIONAL_MCP_SKILLS> {
   return Object.keys(OPTIONAL_MCP_SKILLS).filter((name) =>
@@ -104,13 +91,10 @@ function buildSkillsList(): string {
     "- list-skills command",
     "- list-cmds command",
     "- use-skill command",
-    ...(gitMountEnabled() ? ["- git command"] : []),
+    "- git command",
     "",
     "loaded by context",
     ...AUTO_SKILLS.map((skill) => `- ${skill}`),
-    ...(gitMountEnabled()
-      ? ["- hva-git-review - local git diff review inside HVA"]
-      : []),
     ...enabledOptional.map((name) => `- ${OPTIONAL_MCP_SKILLS[name]}`),
     "",
     "manual",
@@ -123,80 +107,21 @@ function buildCommandsList(): string {
   const lines = [
     "custom commands",
     ...HVA_COMMAND_CHOICES.map((command) => `- /${command.name} - ${command.description}`),
-    ...(gitMountEnabled() ? ["- /git - prepare a local git review diff and send it to the agent"] : []),
+    "- /git - prepare a local git review diff and send it to the agent",
     "",
     "blessed flows",
     ...MANUAL_SKILLS.map((skill) => `- ${skill}`),
-    ...(gitMountEnabled()
-      ? ["- /skill:hva-git-review main|branch <target>|commit <rev>|staged|unstaged|all - local git diff review"]
-      : []),
+    "- /skill:git - git status, history, diffs, branches, and git rules",
+    "- /skill:hva-git-review main|branch <target>|commit <rev>|staged|unstaged|all - explicit local diff review",
   ];
   return lines.join("\n");
 }
 
 function buildInjection(): string {
-  const searchOrder = buildSearchOrderSection();
-  const mcp = enabledMcpNames();
-  const enabledMcpLines = mcp.length > 0
-    ? mcp.map((name) => `- ${name}`).join("\n")
-    : "- none";
-
   return `
-${searchOrder ? `SEARCH ORDER (mandatory):\n${searchOrder}\n\n` : ""}\
-
 HVA RUNTIME (mandatory):
 ${buildRuntimeSection()}
-
-TOOL PRIORITY (mandatory):
-${buildToolPrioritySection()}
-
-ENABLED MCP (info):
-${enabledMcpLines}
 `;
-}
-
-function buildSearchOrderSection(): string {
-  const lines = [];
-
-  if (enabledMcp("ripgrep")) {
-    lines.push("- Text inside workspace files: `ripgrep_search` first.");
-    lines.push("- File names, file counts, and listing: `ls` or `find` first.");
-    lines.push("- Not bash grep. Not `find | grep`. Not `ls | grep`.");
-  }
-
-  return lines.join("\n");
-}
-
-function buildToolPrioritySection(): string {
-  const lines = [];
-
-  if (enabledMcp("ripgrep")) {
-    lines.push("- Text inside workspace files: `ripgrep_search` first.");
-    lines.push("- File-name search, file counts, and file listing: `ls` or `find` first.");
-    lines.push("- Do not use bash grep or bash ls/find/grep pipelines when built-in tools can answer.");
-  }
-  if (enabledMcp("rust-docs")) {
-    lines.push("- Rust crates, docs.rs, and crate versions: rust-docs tools first.");
-    lines.push("- Latest crate version: `crates_package_info` first.");
-    lines.push("- Do not use web_search for Rust crate questions unless rust-docs tools cannot answer.");
-  }
-  if (enabledMcp("github")) {
-    lines.push("- GitHub repo code and file lookup: GitHub tools first.");
-  }
-  if (enabledMcp("pypi")) {
-    lines.push("- Python package lookup: PyPI tools first.");
-  }
-  if (enabledMcp("npm-search")) {
-    lines.push("- npm package lookup: npm tools first.");
-  }
-  if (enabledMcp("searxng")) {
-    lines.push("- Outside facts: `web_search` and `web_fetch` after the more specific tools above.");
-  }
-  if (gitMountEnabled()) {
-    lines.push("- Local git review: run `/hva/internals/git-diff.sh` first. Do not start with `git diff`, `git status`, or `git log` unless the helper fails.");
-  }
-
-  return lines.join("\n");
 }
 
 function diffReviewLabel(

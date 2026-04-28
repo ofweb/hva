@@ -1,6 +1,6 @@
 ---
 name: github
-description: Use for GitHub repo code and file lookup.
+description: "Use first for upstream GitHub repo code search, file lookup, PRs, issues, branches, and commits."
 ---
 
 # GitHub

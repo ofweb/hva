@@ -1,6 +1,6 @@
 ---
 name: searxng
-description: Use for outside facts after specific tools fail.
+description: "Use for outside facts, websites, docs, and general web lookup after the more specific tools."
 ---
 
 # SearXNG

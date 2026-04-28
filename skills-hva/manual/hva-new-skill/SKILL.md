@@ -1,6 +1,6 @@
 ---
 name: hva-new-skill
-description: Make or change HVA skills.
+description: "Make or change HVA skills."
 disable-model-invocation: true
 ---
 
@@ -29,6 +29,17 @@ Use these folders:
 - generic manual skill: `skills/manual/my-skill/SKILL.md`
 - HVA auto skill: `skills-hva/auto/my-skill/SKILL.md`
 - HVA manual skill: `skills-hva/manual/my-skill/SKILL.md`
+
+In skill frontmatter, quote the whole `description` value.
+
+Good:
+
+```markdown
+---
+name: my-skill
+description: "Use first for X: Y, Z, and W."
+---
+```
 
 There is no `skills/always`. Always-on runtime guidance lives in `hva-runtime/`.
 

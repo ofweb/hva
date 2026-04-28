@@ -1,6 +1,6 @@
 ---
 name: pypi
-description: Use for Python packages.
+description: "Use first for Python package names, versions, metadata, and release lookup."
 ---
 
 # PyPI

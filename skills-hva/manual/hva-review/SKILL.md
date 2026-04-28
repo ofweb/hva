@@ -1,6 +1,6 @@
 ---
 name: hva-review
-description: Review HVA changes.
+description: "Review HVA changes."
 disable-model-invocation: true
 ---
 

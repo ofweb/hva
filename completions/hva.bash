@@ -21,6 +21,7 @@ _hva_complete() {
     --local
     --bash
     --new
+    --new-hard
     --msg
     --prompt
     --prompt-file

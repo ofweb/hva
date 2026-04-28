@@ -596,7 +596,6 @@ ensure_llama_server() {
 print_llama_startup_failure() {
   local url="$1"
   local timeout="$2"
-  local log_tail="${HVA_LLAMA_LOG_TAIL:-120}"
 
   {
     echo
@@ -604,14 +603,16 @@ print_llama_startup_failure() {
     echo "URL: $url"
     echo "Container: $LLAMA_CONTAINER"
     echo
-    echo "Recent llama logs:"
+    echo "Full llama logs:"
   } >&2
 
-  if ! "${DOCKER[@]}" logs --tail "$log_tail" "$LLAMA_CONTAINER" >&2; then
+  if ! "${DOCKER[@]}" logs "$LLAMA_CONTAINER" >&2; then
     echo "could not read logs for container: $LLAMA_CONTAINER" >&2
   fi
 
   {
+    echo
+    echo "FAILED LOADING LLAMA.CPP"
     echo
     echo "Try:"
     echo "  $HVA_ROOT/internals/run-hva-llama-cpp.sh status"

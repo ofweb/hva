@@ -1,6 +1,6 @@
 ---
 name: review
-description: Use for code review.
+description: "Use for code review."
 ---
 
 # Review
